@@ -22,6 +22,7 @@ This section is for people who desire to run the freegeoip web server on their o
 
 Docker has [install instructions for many platforms](https://docs.docker.com/engine/installation/),
 including
+
 - [Ubuntu](https://docs.docker.com/engine/installation/linux/docker-ce/ubuntu/)
 - [CentOS](https://docs.docker.com/engine/installation/linux/docker-ce/centos/)
 - [Mac](https://docs.docker.com/docker-for-mac/install/)
@@ -47,18 +48,18 @@ There are [pre-compiled binaries](https://github.com/fiorix/freegeoip/releases) 
 
 For production workloads you may want to use different configuration for the freegeoip web server, for example:
 
-* Enabling the "internal server" for collecting metrics and profiling/tracing the freegeoip web server on demand
-* Monitoring the internal server using [Prometheus](https://prometheus.io), or exporting your metrics to [New Relic](https://newrelic.com)
-* Serving the freegeoip API over HTTPS (TLS) using your own certificates, or provisioned automatically using [LetsEncrypt.org](https://letsencrypt.org)
-* Configuring [HSTS](https://en.wikipedia.org/wiki/HTTP_Strict_Transport_Security) to restrict your browser clients to always use HTTPS
-* Configuring the read and write timeouts to avoid stale clients consuming server resources
-* Configuring the freegeoip web server to read the client IP (for logs, etc) from the X-Forwarded-For header when running behind a reverse proxy
-* Configuring [CORS](https://en.wikipedia.org/wiki/Cross-origin_resource_sharing) to restrict access to your API to specific domains
-* Configuring a specific endpoint path prefix other than the default "/" (thus /json, /xml, /csv) to serve the API alongside other APIs on the same host
-* Optimizing your round trips by enabling [TCP Fast Open](https://en.wikipedia.org/wiki/TCP_Fast_Open) on your OS and the freegeoip web server
-* Setting up usage limits (quotas) for your clients (per client IP) based on requests per time interval; we support various backends such as in-memory map (for single instance), or redis or memcache for distributed deployments
-* Serve the default [GeoLite2 City](http://dev.maxmind.com/geoip/geoip2/geolite2/) free database that is downloaded and updated automatically in background on a configurable schedule, or
-* Serve the commercial [GeoIP2 City](https://www.maxmind.com/en/geoip2-city) database from MaxMind, either as a local file that you provide and update periodically (so the server can reload it), or configured to be downloaded periodically using your API key
+- Enabling the "internal server" for collecting metrics and profiling/tracing the freegeoip web server on demand
+- Monitoring the internal server using [Prometheus](https://prometheus.io), or exporting your metrics to [New Relic](https://newrelic.com)
+- Serving the freegeoip API over HTTPS (TLS) using your own certificates, or provisioned automatically using [LetsEncrypt.org](https://letsencrypt.org)
+- Configuring [HSTS](https://en.wikipedia.org/wiki/HTTP_Strict_Transport_Security) to restrict your browser clients to always use HTTPS
+- Configuring the read and write timeouts to avoid stale clients consuming server resources
+- Configuring the freegeoip web server to read the client IP (for logs, etc) from the X-Forwarded-For header when running behind a reverse proxy
+- Configuring [CORS](https://en.wikipedia.org/wiki/Cross-origin_resource_sharing) to restrict access to your API to specific domains
+- Configuring a specific endpoint path prefix other than the default "/" (thus /json, /xml, /csv) to serve the API alongside other APIs on the same host
+- Optimizing your round trips by enabling [TCP Fast Open](https://en.wikipedia.org/wiki/TCP_Fast_Open) on your OS and the freegeoip web server
+- Setting up usage limits (quotas) for your clients (per client IP) based on requests per time interval; we support various backends such as in-memory map (for single instance), or redis or memcache for distributed deployments
+- Serve the default [GeoLite2 City](http://dev.maxmind.com/geoip/geoip2/geolite2/) free database that is downloaded and updated automatically in background on a configurable schedule, or
+- Serve the commercial [GeoIP2 City](https://www.maxmind.com/en/geoip2-city) database from MaxMind, either as a local file that you provide and update periodically (so the server can reload it), or configured to be downloaded periodically using your API key
 
 See the [Server Options](#serveroptions) section below for more information on configuring the server.
 
@@ -78,12 +79,12 @@ If you're using LetsEncrypt.org to provision your TLS certificates, you have to 
 
 ```bash
 docker run -p 8888:8888 -p 80:8080 -p 443:8443 -d fiorix/freegeoip \
-	-internal-server=:8888 \
-	-http=:8080 \
-	-https=:8443 \
-	-hsts=max-age=31536000 \
-	-letsencrypt \
-	-letsencrypt-hosts=myfancydomain.io
+-internal-server=:8888 \
+-http=:8080 \
+-https=:8443 \
+-hsts=max-age=31536000 \
+-letsencrypt \
+-letsencrypt-hosts=myfancydomain.io
 ```
 
  You can configure the freegeiop web server via command line flags or environment variables. The names of environment variables are the same for command line flags, but prefixed with FREEGEOIP, all upperscase, separated by underscores. If you want to use environment variables instead:
@@ -97,7 +98,7 @@ FREEGEOIP_HSTS=max-age=31536000
 FREEGEOIP_LETSENCRYPT=true
 FREEGEOIP_LETSENCRYPT_HOSTS=myfancydomain.io
 
-$ docker run --env-file=prod.env -p 8888:8888 -p 80:8080 -p 443:8443 -d fiorix/freegeoip
+$ docker run --env-file=prod.env -p 8888:8888 -p 80:8080 -p 443:8443 -d freegeoip
 ```
 
 By default, HTTP/2 is enabled over HTTPS. You can disable by passing the `-http2=false` flag.
@@ -189,10 +190,14 @@ Besides the database part, the package provides an `http.Handler` object that yo
 
 Download the package:
 
-	go get -d github.com/fiorix/freegeoip/...
+```bash
+go get -d github.com/fiorix/freegeoip/...
+```
 
 Install the web server:
 
-	go install github.com/fiorix/freegeoip/cmd/freegeoip
+```bash
+go install github.com/fiorix/freegeoip/cmd/freegeoip
+```
 
 Test coverage is quite good, and test code may help you find the stuff you need.

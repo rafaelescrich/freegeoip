@@ -19,6 +19,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/fiorix/go-redis/redis"
@@ -42,6 +43,11 @@ type apiHandler struct {
 	nrapp newrelic.Application
 }
 
+type bulkRequest struct {
+	hosts     []string
+	createdAt time.Time
+}
+
 // NewHandler creates an http handler for the freegeoip server that
 // can be embedded in other servers.
 func NewHandler(c *Config) (http.Handler, error) {
@@ -63,6 +69,7 @@ func NewHandler(c *Config) (http.Handler, error) {
 	mux.GET("/csv/*host", f.register("csv", csvWriter))
 	mux.GET("/xml/*host", f.register("xml", xmlWriter))
 	mux.GET("/json/*host", f.register("json", jsonWriter))
+	mux.POST("/bulk", parseBulkRequest)
 	go watchEvents(db)
 	return mux, nil
 }
@@ -163,6 +170,32 @@ func (f *apiHandler) register(name string, writer writerFunc) http.HandlerFunc {
 	}
 
 	return f.cors.Handler(h).ServeHTTP
+}
+
+func parseBulkRequest(rw http.ResponseWriter, request *http.Request) {
+
+	br := bulkRequest{}
+
+	//Parse json request body and use it to set fields on user
+	//Note that user is passed as a pointer variable so that it's fields can be modified
+	err := json.NewDecoder(request.Body).Decode(&br)
+	if err != nil {
+		panic(err)
+	}
+
+	br.createdAt = time.Now().Local()
+
+	//Marshal or convert user object back to json and write to response
+	geoJSON, err := json.Marshal(br)
+	if err != nil {
+		panic(err)
+	}
+
+	//Set Content-Type header so that clients will know how to read response
+	rw.Header().Set("Content-Type", "application/json")
+	rw.WriteHeader(http.StatusOK)
+	//Write json response back to response
+	rw.Write(geoJSON)
 }
 
 func (f *apiHandler) iplookup(writer writerFunc) http.HandlerFunc {
