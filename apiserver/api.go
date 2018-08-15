@@ -9,6 +9,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -19,7 +20,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/fiorix/go-redis/redis"
@@ -43,11 +43,6 @@ type apiHandler struct {
 	nrapp newrelic.Application
 }
 
-type bulkRequest struct {
-	hosts     []string
-	createdAt time.Time
-}
-
 // NewHandler creates an http handler for the freegeoip server that
 // can be embedded in other servers.
 func NewHandler(c *Config) (http.Handler, error) {
@@ -57,7 +52,7 @@ func NewHandler(c *Config) (http.Handler, error) {
 	}
 	cf := cors.New(cors.Options{
 		AllowedOrigins:   strings.Split(c.CORSOrigin, ","),
-		AllowedMethods:   []string{"GET"},
+		AllowedMethods:   []string{"GET", "POST"},
 		AllowCredentials: true,
 	})
 	f := &apiHandler{db: db, conf: c, cors: cf}
@@ -69,7 +64,7 @@ func NewHandler(c *Config) (http.Handler, error) {
 	mux.GET("/csv/*host", f.register("csv", csvWriter))
 	mux.GET("/xml/*host", f.register("xml", xmlWriter))
 	mux.GET("/json/*host", f.register("json", jsonWriter))
-	mux.POST("/bulk", parseBulkRequest)
+	mux.POST("/bulk", f.parseBulkRequest)
 	go watchEvents(db)
 	return mux, nil
 }
@@ -172,30 +167,69 @@ func (f *apiHandler) register(name string, writer writerFunc) http.HandlerFunc {
 	return f.cors.Handler(h).ServeHTTP
 }
 
-func parseBulkRequest(rw http.ResponseWriter, request *http.Request) {
+type bulkResponse []responseRecord
 
-	br := bulkRequest{}
+func (f *apiHandler) parseBulkRequest(rw http.ResponseWriter, r *http.Request) {
 
+	ips := []string{}
+	recordMap := make(map[string]responseRecord)
+	lang := r.Header.Get("Accept-Language")
 	//Parse json request body and use it to set fields on user
 	//Note that user is passed as a pointer variable so that it's fields can be modified
-	err := json.NewDecoder(request.Body).Decode(&br)
-	if err != nil {
-		panic(err)
-	}
 
-	br.createdAt = time.Now().Local()
-
-	//Marshal or convert user object back to json and write to response
-	geoJSON, err := json.Marshal(br)
-	if err != nil {
-		panic(err)
-	}
-
+	err := json.NewDecoder(r.Body).Decode(&ips)
 	//Set Content-Type header so that clients will know how to read response
 	rw.Header().Set("Content-Type", "application/json")
+
+	if err != nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		rw.Write([]byte("invalid request"))
+		return
+	}
+
+	fmt.Println("bulk hosts", ips)
+	for _, ip := range ips {
+		if hasIP := net.ParseIP(ip); hasIP == nil {
+			fmt.Println("Received invalid IP", ip)
+			continue
+		}
+
+		_, ok := recordMap[ip]
+		if ok { // already looked up IP
+			fmt.Println("Already looked up IP", ip)
+			continue
+		}
+
+		// query the DB
+		q := &geoipQuery{}
+		netIP := net.ParseIP(ip)
+		err = f.db.Lookup(netIP, &q.DefaultQuery)
+		if err != nil { // IP could not be found in DB
+			recordMap[ip] = responseRecord{
+				IP:    ip,
+				Error: errors.New("Could not lookup IP"),
+			}
+			continue
+		}
+		record := q.Record(netIP, lang)
+		recordMap[ip] = *record
+		fmt.Println("Successfully added IP to map", recordMap)
+	}
+
+	resp := make([]responseRecord, 0, len(recordMap))
+	for _, record := range recordMap {
+		resp = append(resp, record)
+	}
+
+	//Marshal or convert user object back to json and write to response
+	respJSON, err := json.Marshal(resp)
+	if err != nil {
+		panic(err)
+	}
+
 	rw.WriteHeader(http.StatusOK)
 	//Write json response back to response
-	rw.Write(geoJSON)
+	rw.Write(respJSON)
 }
 
 func (f *apiHandler) iplookup(writer writerFunc) http.HandlerFunc {
@@ -330,6 +364,7 @@ type responseRecord struct {
 	Latitude    float64  `json:"latitude"`
 	Longitude   float64  `json:"longitude"`
 	MetroCode   uint     `json:"metro_code"`
+	Error       error    `json:"error"`
 }
 
 func (rr *responseRecord) String() string {
