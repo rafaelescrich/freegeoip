@@ -33,7 +33,7 @@ import (
 	"github.com/rs/cors"
 	"golang.org/x/text/language"
 
-	"github.com/fiorix/freegeoip"
+	"github.com/rafaelescrich/freegeoip"
 )
 
 type apiHandler struct {
@@ -178,12 +178,13 @@ func (f *apiHandler) parseBulkRequest(rw http.ResponseWriter, r *http.Request) {
 	//Note that user is passed as a pointer variable so that it's fields can be modified
 
 	err := json.NewDecoder(r.Body).Decode(&ips)
+	fmt.Println("error json decode", err)
 	//Set Content-Type header so that clients will know how to read response
 	rw.Header().Set("Content-Type", "application/json")
 
 	if err != nil {
 		rw.WriteHeader(http.StatusBadRequest)
-		rw.Write([]byte("invalid request"))
+		rw.Write([]byte(err.Error()))
 		return
 	}
 
